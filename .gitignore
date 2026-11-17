@@ -14,9 +14,11 @@
 /build/
 *.tsbuildinfo
 
-# Environment & Secret Files (Keep .env.example tracked)
-.env*
+# Environment & Secret Files (Keep .env.example & .env.production tracked)
+.env*.local
+.env.development
 !.env.example
+!.env.production
 
 # Cryptographic Keys & Certificates
 *.pem
