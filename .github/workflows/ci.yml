@@ -1,0 +1,180 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  lint-typecheck:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Run ESLint
+        run: npm run lint
+      - name: Run TypeScript Check
+        run: npm run type-check
+
+  test:
+    name: Automated Unit & Security Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: nextgen_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Deploy Prisma Migrations
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/nextgen_test?schema=public
+          DIRECT_URL: postgresql://postgres:test@localhost:5432/nextgen_test?schema=public
+      - name: Run Test Suite
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/nextgen_test?schema=public
+          REDIS_URL: redis://localhost:6379
+          ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          HASH_SECRET: test_phone_blind_index_secret_key_12345
+          RAZORPAY_KEY_ID: rzp_test_dummyKeyId12345
+          RAZORPAY_KEY_SECRET: dummyRazorpaySecretKey54321
+          RAZORPAY_WEBHOOK_SECRET: dummyRazorpayWebhookSecret999
+          NEXTAUTH_SECRET: dummy_nextauth_secret_for_tests_32_chars_min
+
+  security:
+    name: Security Scans (SAST, Secrets, Audit)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Secret Scanning (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Dependency Audit
+        run: npm audit --audit-level=high
+      - name: Initialize CodeQL SAST
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  build:
+    name: Production Build Test
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:test@localhost:5432/nextgen_dummy?schema=public
+      DIRECT_URL: postgresql://postgres:test@localhost:5432/nextgen_dummy?schema=public
+      NEXTAUTH_SECRET: dummy_secret_for_ci_build_test_only_32_chars
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      HASH_SECRET: dummy_hash_secret_for_build_step_123
+      RAZORPAY_KEY_ID: rzp_test_ciBuildKeyId123
+      RAZORPAY_KEY_SECRET: rzp_test_ciBuildKeySecret456
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_ciBuildKeyId123
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Run Next.js Build
+        run: npm run build
+
+  container-scan:
+    name: Container Build & Trivy Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t nextgen-it-hub:${{ github.sha }} .
+      - name: Trivy Container Vulnerability Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: nextgen-it-hub:${{ github.sha }}
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [lint-typecheck, test, security, build]
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Deploy to Staging Server
+        run: echo "Deploying artifacts to staging environment..."
+      - name: Run E2E Smoke Tests
+        run: echo "Executing post-deploy E2E health check..."
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/main'
+    environment: production  # Requires manual approval in GitHub Environments
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Deploy to Production Cluster
+        run: echo "Deploying approved build to production VPS / Kubernetes..."

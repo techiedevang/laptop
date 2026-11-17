@@ -1,6 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.*
@@ -10,32 +8,48 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# Next.js Build Outputs
 /.next/
 /out/
+/build/
+*.tsbuildinfo
 
-# production
-/build
+# Environment & Secret Files (Keep .env.example tracked)
+.env*
+!.env.example
 
-# misc
-.DS_Store
+# Cryptographic Keys & Certificates
 *.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
 
-# debug
+# Database Dumps & Encrypted Backups
+*.dump
+*.dump.enc
+*.sql
+*.sqlite
+*.sqlite3
+
+# Test Coverage & Logs
+/coverage
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
+# Vercel & Deployment
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# System & Editor Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+/scratch/

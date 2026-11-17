@@ -185,7 +185,7 @@ export default function LaptopFilters({ brands, filters, onChange }: LaptopFilte
     return n;
   };
 
-  const FilterContent = () => (
+  const filterContent = (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
@@ -276,7 +276,7 @@ export default function LaptopFilters({ brands, filters, onChange }: LaptopFilte
       {/* Desktop sidebar */}
       <div className="hidden lg:block w-72 flex-shrink-0">
         <div className="sticky top-4">
-          <FilterContent />
+          {filterContent}
         </div>
       </div>
 
@@ -310,7 +310,7 @@ export default function LaptopFilters({ brands, filters, onChange }: LaptopFilte
                 <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
             </div>
-            <FilterContent />
+            {filterContent}
             <div className="sticky bottom-0 p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setMobileOpen(false)}

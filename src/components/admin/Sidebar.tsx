@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { Logo } from '@/components/ui/Logo';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, Video, FileText,
@@ -64,11 +65,11 @@ export function Sidebar({ user, mobileOpen = false, onMobileClose }: SidebarProp
     return false;
   }
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-700 dark:border-gray-800">
-        <div className="h-9 w-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-lg select-none">N</div>
+        <Logo iconOnly height={36} className="h-9 w-auto shrink-0" />
         <div>
           <div className="font-bold text-white text-sm leading-tight">NextGen IT Hub</div>
           <div className="text-gray-400 text-xs">Admin Panel</div>
@@ -177,7 +178,7 @@ export function Sidebar({ user, mobileOpen = false, onMobileClose }: SidebarProp
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 bg-gray-900 dark:bg-gray-950 h-screen sticky top-0 flex-shrink-0">
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* Mobile Sidebar Overlay */}
@@ -185,7 +186,7 @@ export function Sidebar({ user, mobileOpen = false, onMobileClose }: SidebarProp
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onMobileClose} />
           <aside className="fixed left-0 top-0 bottom-0 w-72 bg-gray-900 dark:bg-gray-950 z-50 flex flex-col">
-            <SidebarContent />
+            {sidebarContent}
           </aside>
         </div>
       )}

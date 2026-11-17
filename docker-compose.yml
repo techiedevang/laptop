@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  # Next.js Application (Development mode with hot reload)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://nextgen_user:nextgen_dev_pass@db:5432/nextgen_it_hub?schema=public
+      - DIRECT_URL=postgresql://nextgen_user:nextgen_dev_pass@db:5432/nextgen_it_hub?schema=public
+      - REDIS_URL=redis://redis:6379
+      - NEXTAUTH_SECRET=dev_nextauth_secret_key_at_least_32_characters_long
+      - NEXTAUTH_URL=http://localhost:3000
+      - ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      - HASH_SECRET=nextgen_dev_phone_blind_index_hash_secret_key_12345
+      - NEXT_PUBLIC_SITE_URL=http://localhost:3000
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - nextgen_dev_net
+
+  # PostgreSQL 16 Database (Tuned for 10,000+ Concurrent High Traffic)
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: nextgen_user
+      POSTGRES_PASSWORD: nextgen_dev_pass
+      POSTGRES_DB: nextgen_it_hub
+    command: >
+      postgres
+      -c max_connections=2000
+      -c shared_buffers=1024MB
+      -c effective_cache_size=3072MB
+      -c maintenance_work_mem=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=16MB
+    volumes:
+      - nextgen_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextgen_user -d nextgen_it_hub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nextgen_dev_net
+
+  # PgBouncer Connection Pooler (Handles 10,000+ simultaneous client connections)
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    restart: unless-stopped
+    ports:
+      - "6432:6432"
+    environment:
+      DB_USER: nextgen_user
+      DB_PASSWORD: nextgen_dev_pass
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: nextgen_it_hub
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 10000
+      DEFAULT_POOL_SIZE: 100
+      MIN_POOL_SIZE: 20
+      RESERVE_POOL_SIZE: 10
+      MAX_DB_CONNECTIONS: 500
+      SERVER_RESET_QUERY: DISCARD ALL
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - nextgen_dev_net
+
+  # Redis for High-Speed Session Caching, Rate Limiting & BullMQ (100k+ ops/sec)
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 1024mb --maxmemory-policy allkeys-lru
+    volumes:
+      - nextgen_redisdata:/data
+    networks:
+      - nextgen_dev_net
+
+  # pgAdmin (Developer Database GUI)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@nextgenithub.in
+      PGADMIN_DEFAULT_PASSWORD: admin_secure_pass
+    volumes:
+      - nextgen_pgadmin:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - nextgen_dev_net
+
+volumes:
+  nextgen_pgdata:
+  nextgen_redisdata:
+  nextgen_pgadmin:
+
+networks:
+  nextgen_dev_net:
+    driver: bridge

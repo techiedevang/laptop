@@ -1,0 +1,7 @@
+Contact: mailto:security@nextgenithhub.com
+Contact: mailto:security@nextgenithub.in
+Preferred-Languages: en, hi
+Canonical: https://nextgenithub.com/.well-known/security.txt
+Policy: https://nextgenithub.com/security
+Hiring: https://nextgenithub.com/careers
+Expires: 2027-01-01T00:00:00.000Z

@@ -1,0 +1,930 @@
+// This is the complete Prisma schema for NextGen IT Hub
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// USERS
+model User {
+  id            String    @id @default(uuid())
+  email         String?   @unique
+  emailVerified DateTime?
+  phone         String? // encrypted
+  phoneVerified Boolean   @default(false)
+  phoneHash     String? // hashed for lookup
+  passwordHash  String?
+  name          String
+  avatarUrl     String?
+  role          String  @default("CUSTOMER")
+  isActive      Boolean   @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  addresses      UserAddress[]
+  sessions       Session[]
+  refreshTokens  RefreshToken[]
+  otpCodes       OtpCode[]
+  carts          Cart[]
+  orders         Order[]
+  reviews        Review[]
+  dataRequests   DataRequest[]
+  cookieConsents CookieConsent[]
+  consentLogs    ConsentLog[]
+  meetings       VideoMeeting[]    @relation("CustomerMeetings")
+  wishlistItems  WishlistItem[]
+  supportTickets SupportTicket[]
+  notifications  NotificationLog[]
+
+  @@index([email])
+  @@index([phoneHash])
+  @@index([role])
+  @@index([createdAt])
+}
+
+model UserAddress {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String // encrypted
+  line1     String // encrypted
+  line2     String? // encrypted
+  city      String
+  state     String
+  pincode   String
+  country   String    @default("IN")
+  isDefault Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  orders Order[]
+
+  @@index([userId])
+}
+
+model AdminUser {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  passwordHash     String
+  name             String
+  role             String
+  permissions      Json?
+  twoFactorSecret  String? // encrypted TOTP secret
+  twoFactorEnabled Boolean   @default(false)
+  isActive         Boolean   @default(true)
+  lastLogin        DateTime?
+  lastLoginIp      String?
+  ipAllowlist      String @default("[]")
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  auditLogs        AuditLog[]
+  meetings         VideoMeeting[] @relation("StaffMeetings")
+  assignedMeetings VideoMeeting[] @relation("AssignedStaff")
+
+  @@index([email])
+  @@index([role])
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  deviceInfo String?
+  ipAddress  String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+model OtpCode {
+  id         String    @id @default(uuid())
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  identifier String // email or phone
+  code       String
+  purpose    String // signup, login, password-reset, booking
+  expiresAt  DateTime
+  usedAt     DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([identifier, purpose])
+  @@index([expiresAt])
+}
+
+// LAPTOPS
+model Brand {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  logoUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  laptops Laptop[]
+
+  @@index([slug])
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  iconUrl     String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  laptops Laptop[]
+
+  @@index([slug])
+}
+
+model Laptop {
+  id          String       @id @default(uuid())
+  brandId     String
+  brand       Brand        @relation(fields: [brandId], references: [id])
+  categoryId  String?
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  model       String
+  slug        String       @unique
+  shortDesc   String?
+  description String? // rich text, sanitized
+  grade       String
+  status      String @default("AVAILABLE")
+
+  // Pricing (in paise)
+  mrp          Int // MRP in paise
+  sellingPrice Int // selling price in paise
+  costPrice    Int // cost price in paise (admin only)
+  gstRate      Int @default(18) // GST percentage
+
+  // Key specs
+  processor String?
+  ram       String? // e.g. "8GB"
+  storage   String? // e.g. "256GB SSD"
+  display   String? // e.g. "14 inch FHD"
+  os        String?
+  gpu       String?
+  battery   String?
+
+  // Counts
+  totalUnits     Int @default(0)
+  availableUnits Int @default(0)
+
+  warranty       String? // e.g. "6 months"
+  conditionNotes String?
+  sku            String? @unique
+
+  // SEO
+  metaTitle String?
+  metaDesc  String?
+
+  // Timestamps
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  images        LaptopImage[]
+  specs         LaptopSpec[]
+  units         LaptopUnit[]
+  priceTiers    PriceTier[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+  meetings      VideoMeetingLaptop[]
+  stockHistory  StockHistory[]
+
+  @@index([slug])
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([grade])
+  @@index([sellingPrice])
+  @@index([createdAt])
+}
+
+model LaptopImage {
+  id        String   @id @default(uuid())
+  laptopId  String
+  laptop    Laptop   @relation(fields: [laptopId], references: [id], onDelete: Cascade)
+  url       String
+  altText   String?
+  sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([laptopId])
+}
+
+model LaptopSpec {
+  id        String  @id @default(uuid())
+  laptopId  String
+  laptop    Laptop  @relation(fields: [laptopId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+  group     String? // e.g. "Display", "Performance", "Connectivity"
+  sortOrder Int     @default(0)
+
+  @@index([laptopId])
+}
+
+model LaptopUnit {
+  id           String      @id @default(uuid())
+  laptopId     String
+  laptop       Laptop      @relation(fields: [laptopId], references: [id])
+  serialNumber String?     @unique
+  grade        String
+  status       String  @default("AVAILABLE")
+  costPrice    Int // in paise
+  soldAt       DateTime?
+  orderId      String?
+  deletedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([laptopId])
+  @@index([status])
+  @@index([serialNumber])
+}
+
+model PriceTier {
+  id           String   @id @default(uuid())
+  laptopId     String
+  laptop       Laptop   @relation(fields: [laptopId], references: [id], onDelete: Cascade)
+  minQty       Int
+  maxQty       Int?
+  pricePerUnit Int // in paise
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([laptopId])
+}
+
+model StockHistory {
+  id        String   @id @default(uuid())
+  laptopId  String
+  laptop    Laptop   @relation(fields: [laptopId], references: [id])
+  action    String // ADDED, SOLD, RESERVED, RETURNED, ADJUSTED
+  quantity  Int
+  note      String?
+  actorId   String? // admin user id
+  createdAt DateTime @default(now())
+
+  @@index([laptopId])
+  @@index([createdAt])
+}
+
+// CART
+model Cart {
+  id        String    @id @default(uuid())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId String? // for guest carts
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  items CartItem[]
+
+  @@index([userId])
+  @@index([sessionId])
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  laptopId  String
+  laptop    Laptop   @relation(fields: [laptopId], references: [id])
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, laptopId])
+  @@index([cartId])
+}
+
+model WishlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  laptopId  String
+  laptop    Laptop   @relation(fields: [laptopId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, laptopId])
+  @@index([userId])
+}
+
+// ORDERS
+model Order {
+  id          String       @id @default(uuid())
+  orderNumber String       @unique // e.g. NGH-2024-001234
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  addressId   String?
+  address     UserAddress? @relation(fields: [addressId], references: [id], onDelete: SetNull)
+
+  guestName  String?
+  guestEmail String?
+  guestPhone String?
+
+  status String @default("PLACED")
+
+  // Pricing in paise
+  subtotal       Int
+  discountAmount Int @default(0)
+  cgst           Int @default(0)
+  sgst           Int @default(0)
+  igst           Int @default(0)
+  shippingFee    Int @default(0)
+  total          Int
+
+  couponId String?
+  coupon   Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
+
+  paymentMethod String
+  paymentStatus String @default("PENDING")
+
+  // B2B
+  gstin       String?
+  companyName String?
+
+  trackingNumber  String?
+  trackingUrl     String?
+  shippingPartner String?
+
+  notes        String?
+  cancelReason String?
+
+  lockedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    OrderItem[]
+  payments Payment[]
+  refunds  Refund[]
+  invoice  Invoice?
+
+  @@index([userId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([orderNumber])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  laptopId  String
+  laptop    Laptop   @relation(fields: [laptopId], references: [id])
+  unitId    String?
+  quantity  Int
+  unitPrice Int // snapshot in paise
+  gstRate   Int
+  cgst      Int      @default(0)
+  sgst      Int      @default(0)
+  igst      Int      @default(0)
+  total     Int
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([laptopId])
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  orderId           String
+  order             Order         @relation(fields: [orderId], references: [id])
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?       @unique
+  razorpaySignature String?
+  method            String
+  status            String @default("PENDING")
+  amount            Int // in paise
+  currency          String        @default("INR")
+  failureReason     String?
+  webhookVerified   Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([orderId])
+  @@index([razorpayOrderId])
+  @@index([razorpayPaymentId])
+}
+
+model Refund {
+  id               String   @id @default(uuid())
+  orderId          String
+  order            Order    @relation(fields: [orderId], references: [id])
+  razorpayRefundId String?  @unique
+  amount           Int // in paise
+  reason           String
+  status           String   @default("PENDING")
+  initiatedBy      String // admin user id
+  auditNote        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id])
+  invoiceNumber String   @unique
+  pdfUrl        String?
+  gstinSeller   String?
+  gstinBuyer    String?
+  issuedAt      DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([invoiceNumber])
+}
+
+model Coupon {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  description   String?
+  discountType  String // PERCENTAGE or FIXED
+  discountValue Int // paise for FIXED, basis points for PERCENTAGE
+  minOrderValue Int? // minimum order value in paise
+  maxDiscount   Int? // cap in paise
+  usageLimit    Int?
+  usedCount     Int       @default(0)
+  validFrom     DateTime
+  validUntil    DateTime
+  isActive      Boolean   @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  orders Order[]
+
+  @@index([code])
+}
+
+// BULK B2B
+model BulkEnquiry {
+  id           String            @id @default(uuid())
+  companyName  String
+  contactName  String
+  email        String // encrypted
+  phone        String // encrypted
+  gstin        String? // encrypted
+  city         String?
+  requirements String
+  quantity     Int
+  budget       Int? // in paise
+  status       String @default("NEW")
+  assignedTo   String?
+  notes        String?
+  deletedAt    DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  quotes Quote[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Quote {
+  id          String      @id @default(uuid())
+  enquiryId   String
+  enquiry     BulkEnquiry @relation(fields: [enquiryId], references: [id])
+  items       Json
+  totalAmount Int // in paise
+  validUntil  DateTime
+  notes       String?
+  sentAt      DateTime?
+  acceptedAt  DateTime?
+  rejectedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([enquiryId])
+}
+
+// SUPPORT
+model SupportTicket {
+  id         String       @id @default(uuid())
+  userId     String?
+  user       User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name       String
+  email      String // encrypted
+  phone      String? // encrypted
+  subject    String
+  message    String
+  status     String @default("OPEN")
+  assignedTo String?
+  resolution String?
+  deletedAt  DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([status])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ContactMessage {
+  id        String    @id @default(uuid())
+  name      String
+  email     String // encrypted
+  phone     String? // encrypted
+  subject   String
+  message   String
+  isRead    Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// CONTENT
+model Review {
+  id         String       @id @default(uuid())
+  userId     String?
+  user       User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  laptopId   String?
+  laptop     Laptop?      @relation(fields: [laptopId], references: [id], onDelete: SetNull)
+  name       String
+  email      String // encrypted
+  rating     Int // 1-5
+  title      String?
+  body       String
+  status     String @default("PENDING")
+  isVerified Boolean      @default(false)
+  deletedAt  DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([laptopId])
+  @@index([status])
+  @@index([rating])
+  @@index([createdAt])
+}
+
+model Blog {
+  id            String        @id @default(uuid())
+  categoryId    String?
+  category      BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  title         String
+  slug          String        @unique
+  excerpt       String?
+  content       String
+  coverImageUrl String?
+  author        String        @default("NextGen IT Hub Team")
+  readTime      Int?
+  metaTitle     String?
+  metaDesc      String?
+  tags          String @default("[]")
+  isPublished   Boolean       @default(false)
+  publishedAt   DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([isPublished])
+  @@index([publishedAt])
+}
+
+model BlogCategory {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  blogs Blog[]
+
+  @@index([slug])
+}
+
+model Faq {
+  id          String      @id @default(uuid())
+  categoryId  String
+  category    FaqCategory @relation(fields: [categoryId], references: [id])
+  question    String
+  answer      String
+  sortOrder   Int         @default(0)
+  isPublished Boolean     @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([categoryId])
+}
+
+model FaqCategory {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  faqs Faq[]
+
+  @@index([slug])
+}
+
+model Partner {
+  id        String    @id @default(uuid())
+  name      String
+  logoUrl   String?
+  website   String?
+  caseStudy String?
+  sortOrder Int       @default(0)
+  isActive  Boolean   @default(true)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model ComparisonRow {
+  id        String   @id @default(uuid())
+  feature   String
+  us        String
+  others    String
+  highlight Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ServiceArea {
+  id        String   @id @default(uuid())
+  city      String
+  state     String
+  pincodes  String @default("[]")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city])
+}
+
+model SiteCounter {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Int      @default(0)
+  label     String
+  updatedAt DateTime @updatedAt
+}
+
+model SiteSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  group     String?
+  updatedAt DateTime @updatedAt
+}
+
+// MEDIA
+model MediaAsset {
+  id         String   @id @default(uuid())
+  url        String
+  publicId   String?
+  altText    String?
+  fileType   String
+  fileSize   Int?
+  width      Int?
+  height     Int?
+  uploadedBy String?
+  purpose    String?
+  createdAt  DateTime @default(now())
+}
+
+// PRIVACY & CONSENT
+model CookieConsent {
+  id            String   @id @default(uuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId     String?
+  necessary     Boolean  @default(true)
+  analytics     Boolean  @default(false)
+  marketing     Boolean  @default(false)
+  whatsapp      Boolean  @default(false)
+  policyVersion String
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model ConsentLog {
+  id            String   @id @default(uuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  purpose       String
+  action        String
+  policyVersion String
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([purpose])
+}
+
+model DataRequest {
+  id         String            @id @default(uuid())
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String
+  status     String @default("PENDING")
+  details    String?
+  resolvedAt DateTime?
+  resolvedBy String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// VIDEO MEETINGS
+model AvailabilitySlot {
+  id          String   @id @default(uuid())
+  dayOfWeek   Int
+  startTime   String
+  endTime     String
+  duration    Int      @default(30)
+  maxBookings Int      @default(2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model VideoMeeting {
+  id              String     @id @default(uuid())
+  roomId          String     @unique
+  title           String
+  customerId      String?
+  customer        User?      @relation("CustomerMeetings", fields: [customerId], references: [id], onDelete: SetNull)
+  hostId          String?
+  host            AdminUser? @relation("StaffMeetings", fields: [hostId], references: [id], onDelete: SetNull)
+  assignedStaffId String?
+  assignedStaff   AdminUser? @relation("AssignedStaff", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+
+  guestName  String?
+  guestPhone String?
+  guestEmail String?
+
+  status          String @default("SCHEDULED")
+  scheduledAt     DateTime
+  durationMinutes Int           @default(30)
+  actualStartAt   DateTime?
+  actualEndAt     DateTime?
+
+  customerToken String?
+  hostToken     String?
+
+  notes           String?
+  internalNotes   String?
+  feedbackRating  Int?
+  feedbackComment String?
+
+  videoCallConsent Boolean   @default(false)
+  consentAt        DateTime?
+
+  cancelReason    String?
+  rescheduledFrom String?
+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  participants  VideoMeetingParticipant[]
+  laptops       VideoMeetingLaptop[]
+  notifications NotificationLog[]
+
+  @@index([customerId])
+  @@index([hostId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([roomId])
+}
+
+model VideoMeetingParticipant {
+  id        String       @id @default(uuid())
+  meetingId String
+  meeting   VideoMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  name      String
+  role      String
+  joinedAt  DateTime?
+  leftAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  @@index([meetingId])
+}
+
+model VideoMeetingLaptop {
+  id        String       @id @default(uuid())
+  meetingId String
+  meeting   VideoMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  laptopId  String
+  laptop    Laptop       @relation(fields: [laptopId], references: [id])
+  createdAt DateTime     @default(now())
+
+  @@unique([meetingId, laptopId])
+}
+
+// NOTIFICATIONS
+model NotificationLog {
+  id          String           @id @default(uuid())
+  userId      String?
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  meetingId   String?
+  meeting     VideoMeeting?    @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  type        String
+  recipient   String
+  template    String?
+  status      String           @default("PENDING")
+  externalId  String?
+  error       String?
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([meetingId])
+  @@index([status])
+}
+
+// AUDIT
+model AuditLog {
+  id         String     @id @default(uuid())
+  adminId    String?
+  admin      AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String?
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime   @default(now())
+
+  @@index([adminId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([action])
+}
