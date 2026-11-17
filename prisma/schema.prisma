@@ -5,25 +5,120 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ENUMS
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  MANAGER
+  STAFF
+}
 
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  STAFF
+}
 
+enum LaptopStatus {
+  AVAILABLE
+  SOLD
+  RESERVED
+  HIDDEN
+}
 
+enum LaptopGrade {
+  A_PLUS
+  A
+  B
+}
 
+enum UnitStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  HIDDEN
+}
 
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+  REFUNDED
+}
 
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIAL_REFUND
+}
 
+enum PaymentMethod {
+  RAZORPAY
+  COD
+  BANK_TRANSFER
+}
 
+enum MeetingStatus {
+  SCHEDULED
+  LIVE
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
 
+enum DataRequestType {
+  ACCESS
+  CORRECTION
+  DELETION
+}
 
+enum DataRequestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
 
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
 
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 
+enum NotificationType {
+  EMAIL
+  WHATSAPP
+  SMS
+  PUSH
+}
 
+enum BulkEnquiryStatus {
+  NEW
+  CONTACTED
+  QUOTED
+  NEGOTIATING
+  CONVERTED
+  LOST
+}
 
 // USERS
 model User {
@@ -36,7 +131,7 @@ model User {
   passwordHash  String?
   name          String
   avatarUrl     String?
-  role          String  @default("CUSTOMER")
+  role          UserRole  @default(CUSTOMER)
   isActive      Boolean   @default(true)
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
@@ -90,14 +185,14 @@ model AdminUser {
   email            String    @unique
   passwordHash     String
   name             String
-  role             String
-  permissions      Json?
+  role             AdminRole
+  permissions      Json      @default("{}")
   twoFactorSecret  String? // encrypted TOTP secret
   twoFactorEnabled Boolean   @default(false)
   isActive         Boolean   @default(true)
   lastLogin        DateTime?
   lastLoginIp      String?
-  ipAllowlist      String @default("[]")
+  ipAllowlist      String[]  @default([])
   deletedAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -196,8 +291,8 @@ model Laptop {
   slug        String       @unique
   shortDesc   String?
   description String? // rich text, sanitized
-  grade       String
-  status      String @default("AVAILABLE")
+  grade       LaptopGrade
+  status      LaptopStatus @default(AVAILABLE)
 
   // Pricing (in paise)
   mrp          Int // MRP in paise
@@ -281,8 +376,8 @@ model LaptopUnit {
   laptopId     String
   laptop       Laptop      @relation(fields: [laptopId], references: [id])
   serialNumber String?     @unique
-  grade        String
-  status       String  @default("AVAILABLE")
+  grade        LaptopGrade
+  status       UnitStatus  @default(AVAILABLE)
   costPrice    Int // in paise
   soldAt       DateTime?
   orderId      String?
@@ -377,7 +472,7 @@ model Order {
   guestEmail String?
   guestPhone String?
 
-  status String @default("PLACED")
+  status OrderStatus @default(PLACED)
 
   // Pricing in paise
   subtotal       Int
@@ -391,8 +486,8 @@ model Order {
   couponId String?
   coupon   Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
 
-  paymentMethod String
-  paymentStatus String @default("PENDING")
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(PENDING)
 
   // B2B
   gstin       String?
@@ -449,8 +544,8 @@ model Payment {
   razorpayOrderId   String?       @unique
   razorpayPaymentId String?       @unique
   razorpaySignature String?
-  method            String
-  status            String @default("PENDING")
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
   amount            Int // in paise
   currency          String        @default("INR")
   failureReason     String?
@@ -527,7 +622,7 @@ model BulkEnquiry {
   requirements String
   quantity     Int
   budget       Int? // in paise
-  status       String @default("NEW")
+  status       BulkEnquiryStatus @default(NEW)
   assignedTo   String?
   notes        String?
   deletedAt    DateTime?
@@ -567,7 +662,7 @@ model SupportTicket {
   phone      String? // encrypted
   subject    String
   message    String
-  status     String @default("OPEN")
+  status     TicketStatus @default(OPEN)
   assignedTo String?
   resolution String?
   deletedAt  DateTime?
@@ -606,7 +701,7 @@ model Review {
   rating     Int // 1-5
   title      String?
   body       String
-  status     String @default("PENDING")
+  status     ReviewStatus @default(PENDING)
   isVerified Boolean      @default(false)
   deletedAt  DateTime?
   createdAt  DateTime     @default(now())
@@ -631,7 +726,7 @@ model Blog {
   readTime      Int?
   metaTitle     String?
   metaDesc      String?
-  tags          String @default("[]")
+  tags          String[]      @default([])
   isPublished   Boolean       @default(false)
   publishedAt   DateTime?
   deletedAt     DateTime?
@@ -712,7 +807,7 @@ model ServiceArea {
   id        String   @id @default(uuid())
   city      String
   state     String
-  pincodes  String @default("[]")
+  pincodes  String[] @default([])
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -787,8 +882,8 @@ model DataRequest {
   id         String            @id @default(uuid())
   userId     String
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type       String
-  status     String @default("PENDING")
+  type       DataRequestType
+  status     DataRequestStatus @default(PENDING)
   details    String?
   resolvedAt DateTime?
   resolvedBy String?
@@ -827,7 +922,7 @@ model VideoMeeting {
   guestPhone String?
   guestEmail String?
 
-  status          String @default("SCHEDULED")
+  status          MeetingStatus @default(SCHEDULED)
   scheduledAt     DateTime
   durationMinutes Int           @default(30)
   actualStartAt   DateTime?
@@ -893,7 +988,7 @@ model NotificationLog {
   user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   meetingId   String?
   meeting     VideoMeeting?    @relation(fields: [meetingId], references: [id], onDelete: SetNull)
-  type        String
+  type        NotificationType
   recipient   String
   template    String?
   status      String           @default("PENDING")

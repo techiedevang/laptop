@@ -18,6 +18,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // 1. Check dedicated admin_token JWT cookie
   const cookieStore = await cookies();
   const adminToken = cookieStore.get('admin_token')?.value;
+  let adminJwtUser: { name: string; role: string; email: string } | null = null;
+
   if (adminToken) {
     try {
       const decoded = jwt.verify(adminToken, JWT_SECRET) as {
@@ -27,16 +29,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         twoFactorVerified?: boolean;
       };
       if (decoded && decoded.email) {
-        const user = {
+        adminJwtUser = {
           name: 'Super Admin',
           role: decoded.role || 'SUPER_ADMIN',
           email: decoded.email,
         };
-        return <AdminShell user={user}>{children}</AdminShell>;
       }
     } catch {
       // Invalid or expired token, fall through to NextAuth check
     }
+  }
+
+  if (adminJwtUser) {
+    return <AdminShell user={adminJwtUser}>{children}</AdminShell>;
   }
 
   // 2. Check NextAuth server session
