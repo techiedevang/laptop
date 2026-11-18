@@ -1,0 +1,2 @@
+# Gitleaks ignore list
+98a484950853f25f59f5b3f117a69caef4cbfb23:Dockerfile:generic-api-key:21

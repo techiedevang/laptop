@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
             excerpt: body.excerpt,
             content: body.content,
             coverImageUrl: body.coverImage,
-            tags: JSON.stringify(body.tags || []),
+            tags: body.tags || [],
             isPublished: body.published,
             publishedAt: body.published ? new Date() : null,
             metaTitle: body.seoTitle,

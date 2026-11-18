@@ -104,7 +104,7 @@ export async function checkPincode(req: NextRequest) {
   const dbArea = await prisma.serviceArea.findFirst({
     where: {
       isActive: true,
-      pincodes: { contains: pincode },
+      pincodes: { has: pincode },
     },
   });
 

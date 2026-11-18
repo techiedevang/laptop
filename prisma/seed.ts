@@ -642,7 +642,7 @@ async function main() {
         content: b.content,
         author: b.author,
         readTime: b.readTime,
-        tags: JSON.stringify(b.tags),
+        tags: b.tags,
         isPublished: b.isPublished,
         publishedAt: b.publishedAt,
       },
@@ -848,7 +848,7 @@ async function main() {
         data: {
           city: sa.city,
           state: sa.state,
-          pincodes: JSON.stringify(sa.pincodes),
+          pincodes: sa.pincodes,
           isActive: sa.isActive,
         },
       });
