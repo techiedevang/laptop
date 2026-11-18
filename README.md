@@ -111,4 +111,4 @@ The application will launch on port 3000 behind an isolated internal network con
 ---
 
 ## 📄 License
-This project is proprietary and built for **NextGen IT Hub Private Limited**, Pune, India.
+This project is proprietary and built for **NextGen IT Hub Private Limited**, Delhi, India.
