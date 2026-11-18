@@ -5,7 +5,8 @@
 
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apk update && apk upgrade --no-cache && \
+    apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 COPY package*.json .npmrc* ./
 COPY prisma ./prisma/
@@ -28,6 +29,17 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+# Security hardening: upgrade OS packages to latest patched versions and purge unused package managers
+RUN apk update && apk upgrade --no-cache && \
+    rm -rf /usr/local/lib/node_modules/npm \
+           /usr/local/bin/npm \
+           /usr/local/bin/npx \
+           /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/corepack \
+           /opt/yarn* \
+           /usr/local/bin/yarn* \
+           /var/cache/apk/* /tmp/*
 
 # Least-privilege non-root system user
 RUN addgroup --system --gid 1001 nodejs && \
